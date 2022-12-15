@@ -1,0 +1,53 @@
+version: "3.9"
+
+# Run fuse-nfs -n nfs://nfs-server/?version=4 -m /mnt
+
+services:
+  nfs-server:
+    image: izdock/nfs-ganesha
+    cap_add:
+      - DAC_READ_SEARCH
+      - SYS_RESOURCE
+      - SYS_ADMIN
+    volumes:
+      - data:/data
+      - ./ganesha/ganesha.conf:/etc/ganesha/ganesha.conf
+      - ./ganesha/start.sh:/start.sh
+    entrypoint: /start.sh
+    networks:
+      - nfs
+    environment:
+      GANESHA_BOOTSTRAP_CONFIG: no
+    expose:
+      - ${PORTMAPPER_PORT}/tcp  #rpcbind/portmapper
+      - ${PORTMAPPER_PORT}/udp  #rpcbind/portmapper
+      - ${STATUS_PORT}/tcp      #rpc.statd/status
+      - ${STATUS_PORT}/udp      #rpc.statd/status
+      - ${NLOCKMGR_PORT}/tcp    #nfs-ganesha/nlockmgr
+      - ${NLOCKMGR_PORT}/udp    #nfs-ganesha/nlockmgr
+      - ${RQUOTAD_PORT}/tcp     #nfs-ganesha/rquotad
+      - ${RQUOTAD_PORT}/udp     #nfs-ganesha/rquotad
+      - ${NFS_PORT}/tcp         #nfs-ganesha/nfs
+      - ${NFS_PORT}/udp         #nfs-ganesha/nfs
+      - ${MOUNTD_PORT}/tcp      #nfs-ganesha/mountd
+      - ${MOUNTD_PORT}/udp      #nfs-ganesha/mountd
+
+  nfs-client:
+    build: ../
+    image: nfs-fuse-client
+    environment:
+      NFS_ENABLED: true
+      NFS_MOUNTS: /data/:/data
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    networks:
+      - nfs
+    command:
+      - sleep infinity
+
+volumes:
+  data:
+networks:
+  nfs:
